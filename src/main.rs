@@ -20,6 +20,5 @@ fn main() {
     let mut proc: Cpu = Cpu::new();
 
     proc.load_rom(input_file);
-
-    println!("{:#06X} {:#06X}", proc.pc, proc.opcode());
+    proc.execute_rom();
 }

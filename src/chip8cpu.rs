@@ -1,5 +1,7 @@
 use std::fs::File;
 use std::io::{Read, Result};
+use std::thread;
+use std::time::Duration;
 
 const RAM: usize = 4096;
 const PROG_START: usize = 0x200;
@@ -9,7 +11,7 @@ pub struct Cpu {
     reg_i: u16,
     reg_d: u8,
     reg_s: u8,
-    pub pc: usize,
+    pc: usize,
     sp: usize,
     stack: [u16; 16],
     ram: [u8; RAM],
@@ -52,8 +54,26 @@ impl Cpu {
         return Ok(data);
     }
 
-    pub fn opcode(&self) -> u16 {
+    fn opcode(&self) -> u16 {
         (self.ram[self.pc] as u16) << 8 | (self.ram[self.pc + 1] as u16)
+    }
+
+    pub fn execute_rom(&mut self) {
+        let tick_delay = Duration::from_millis(200);
+
+        loop {
+            let opcode = self.opcode();
+
+            self.execute_opcode(opcode);
+
+            thread::sleep(tick_delay);
+        }
+    }
+
+    fn execute_opcode(&mut self, opcode: u16) {
+        match opcode & 0xF000 {
+            _ => println!("{}", Cpu::unimplemented_opcode(opcode))
+        }
     }
 
     fn unimplemented_opcode(opcode: u16) -> String {
