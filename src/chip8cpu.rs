@@ -20,7 +20,7 @@ pub struct Opcode {
 }
 
 impl Opcode {
-    pub fn new(opcode: u16) -> Opcode {
+    pub fn new(opcode: u16) -> Self {
         Opcode {
             opcode: opcode,
             nibbles: (
