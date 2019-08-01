@@ -4,16 +4,16 @@ use sdl2::rect::Rect;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 
-const SCALE: u32 = 5;
-const WIDTH: u32 = 64;
-const HEIGHT: u32 = 32;
-const SCREEN_WIDTH: u32 = WIDTH * SCALE;
-const SCREEN_HEIGHT: u32 = HEIGHT * SCALE;
+pub const SCALE: u32 = 5;
+pub const WIDTH: u32 = 64;
+pub const HEIGHT: u32 = 32;
+pub const SCREEN_WIDTH: u32 = WIDTH * SCALE;
+pub const SCREEN_HEIGHT: u32 = HEIGHT * SCALE;
 
 pub struct Display {
-    canvas: Canvas<Window>,
-    vram: [[u8; WIDTH as usize]; HEIGHT as usize],
-    vram_changed: bool
+    pub canvas: Canvas<Window>,
+    pub vram: [[u8; WIDTH as usize]; HEIGHT as usize],
+    pub vram_changed: bool
 }
 
 impl Display {

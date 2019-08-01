@@ -6,7 +6,7 @@ use std::fmt::{Display, Formatter, Result as fmtResult};
 
 use rand::Rng;
 
-use crate::chip8display::Display as chipDisplay;
+use crate::chip8display::{HEIGHT, WIDTH, Display as chipDisplay};
 
 const RAM: usize = 4096;
 const PROG_START: usize = 0x200;
@@ -109,6 +109,10 @@ impl Cpu<'_> {
 
             self.execute_opcode(opcode);
 
+            if self.display.vram_changed {
+                self.display.draw();
+            }
+
             thread::sleep(tick_delay);
         }
     }
@@ -123,14 +127,14 @@ impl Cpu<'_> {
             0x5 => self.opcode_0x5(opcode),
             0x6 => self.opcode_0x6(opcode),
             0x7 => self.opcode_0x7(opcode),
-            //0x8 => self.opcode_0x8(opcode),
+            0x8 => self.opcode_0x8(opcode),
             0x9 => self.opcode_0x9(opcode),
             0xA => self.opcode_0xA(opcode),
             0xB => self.opcode_0xB(opcode),
             0xC => self.opcode_0xC(opcode),
-            //0xD => self.opcode_0xD(opcode),
+            0xD => self.opcode_0xD(opcode),
             //0xE => self.opcode_0xE(opcode),
-            //0xF => self.opcode_0xF(opcode),
+            0xF => self.opcode_0xF(opcode),
             _ => {
                 println!("{}", Cpu::unimplemented_opcode(opcode));
                 self.pc += 2;
@@ -141,22 +145,23 @@ impl Cpu<'_> {
     fn opcode_0x0(&mut self, opcode: Opcode) {
         match opcode.nibbles.2 {
             0xE => match opcode.nibbles.3 {
-                0x0 => println!("CLS"),
+                0x0 => {
+                    self.display.vram = [[0; WIDTH as usize]; HEIGHT as usize];
+                    self.display.vram_changed = true;
+                },
                 0xE => {
                     self.pc = self.stack[self.sp];
                     self.sp -= 1;
-                    self.pc += 2;
                 },
                 _ => {
                     println!("{}", Cpu::unimplemented_opcode(opcode));
-                    self.pc += 2;
                 }
             }
             _ => {
                 println!("{}", Cpu::unimplemented_opcode(opcode));
-                self.pc += 2;
             }
         }
+        self.pc += 2;
     }
 
     fn opcode_0x1(&mut self, opcode: Opcode) {
@@ -200,12 +205,46 @@ impl Cpu<'_> {
     }
 
     fn opcode_0x7(&mut self, opcode: Opcode) {
-        self.reg_v[opcode.x] = self.reg_v[opcode.y];
+        self.reg_v[opcode.x] += opcode.kk;
         self.pc += 2;
     }
 
     fn opcode_0x8(&mut self, opcode: Opcode) {
-        
+        match opcode.nibbles.3 {
+            0x0 => self.reg_v[opcode.x] = self.reg_v[opcode.y],
+            0x1 => self.reg_v[opcode.x] |= self.reg_v[opcode.y],
+            0x2 => self.reg_v[opcode.x] &= self.reg_v[opcode.y],
+            0x3 => self.reg_v[opcode.x] ^= self.reg_v[opcode.y],
+            0x4 => {
+                let tmp = self.reg_v[opcode.x] as u16 + self.reg_v[opcode.y] as u16;
+                self.reg_v[opcode.x] += self.reg_v[opcode.y];
+                self.reg_v[0xF] = if tmp > 255 { 1 } else { 0 };
+            },
+            0x5 => {
+                let tmp = self.reg_v[opcode.x] > self.reg_v[opcode.y];
+                self.reg_v[0xF] = if tmp { 1 } else { 0 };
+                self.reg_v[opcode.x] -= self.reg_v[opcode.y];
+            },
+            0x6 => {
+                let tmp = self.reg_v[opcode.x] & 0x1 == 0x1;
+                self.reg_v[0xF] = if tmp { 1 } else { 0 };
+                self.reg_v[opcode.x] /= 2;
+            },
+            0x7 => {
+                let tmp = self.reg_v[opcode.x] < self.reg_v[opcode.y];
+                self.reg_v[0xF] = if tmp { 1 } else { 0 };
+                self.reg_v[opcode.x] = self.reg_v[opcode.y] - self.reg_v[opcode.x];
+            },
+            0xE => {
+                let tmp = (self.reg_v[opcode.x] & 0x80) >> 7 == 0x1;
+                self.reg_v[0xF] = if tmp { 1 } else { 0 };
+                self.reg_v[opcode.x] *= 2;
+            },
+            _ => {
+                println!("{}", Cpu::unimplemented_opcode(opcode));
+            }
+        }
+        self.pc += 2;
     }
 
     fn opcode_0x9(&mut self, opcode: Opcode) {
@@ -235,17 +274,86 @@ impl Cpu<'_> {
 
     #[allow(non_snake_case)]
     fn opcode_0xD(&mut self, opcode: Opcode) {
-        
+        self.reg_v[0xF] = 0;
+        for byte in 0..opcode.n {
+            let y = (self.reg_v[opcode.y] as usize + byte) % HEIGHT as usize;
+            for bit in 0..8 {
+                let x = (self.reg_v[opcode.x] as usize + bit) % WIDTH as usize;
+                let color = (self.ram[self.reg_i + byte] >> (7 - bit)) & 1;
+                self.reg_v[0xF] |= color & self.display.vram[y][x];
+                self.display.vram[y][x] ^= color;
+            }
+        }
+        self.display.vram_changed = true;
     }
 
     #[allow(non_snake_case)]
     fn opcode_0xE(&mut self, opcode: Opcode) {
         
+        
+        
     }
 
     #[allow(non_snake_case)]
     fn opcode_0xF(&mut self, opcode: Opcode) {
-        
+        match opcode.nibbles.2 {
+            0x0 => match opcode.nibbles.3 {
+                0x7 => self.reg_v[opcode.x] = self.reg_d,
+                0xA => {
+                    println!("future {}", Cpu::unimplemented_opcode(opcode));
+                }
+                _ => println!("{}", Cpu::unimplemented_opcode(opcode))
+            },
+            0x1 => match opcode.nibbles.3 {
+                0x5 => self.reg_d = self.reg_v[opcode.x],
+                0x8 => self.reg_s = self.reg_v[opcode.x],
+                0xE => self.reg_i += self.reg_v[opcode.x] as usize,
+                _ => println!("{}", Cpu::unimplemented_opcode(opcode))
+            },
+            0x2 => match opcode.nibbles.3 {
+                0x9 => {
+                    let addr = 5 * (self.reg_v[opcode.x] as usize);
+                    self.reg_i = addr;
+                },
+                _ => println!("{}", Cpu::unimplemented_opcode(opcode))
+            }
+            0x3 => match opcode.nibbles.3 {
+                0x3 => {
+                    let x = self.reg_v[opcode.x];
+                    let hun = (x / 100) % 10;
+                    let ten = (x / 10) % 10;
+                    let one = x % 10;
+                    let i = self.reg_i;
+                    self.ram[i] = hun;
+                    self.ram[i+1] = ten;
+                    self.ram[i+2] = one;
+                },
+                _ => println!("{}", Cpu::unimplemented_opcode(opcode))
+            },
+            0x5 => match opcode.nibbles.3 {
+                0x5 => {
+                    let x = opcode.x;
+                    let i = self.reg_i;
+                    for idx in 0..x {
+                        self.ram[i + idx] = self.reg_v[idx];
+                    }
+                },
+                _ => println!("{}", Cpu::unimplemented_opcode(opcode))
+            },
+            0x6 => match opcode.nibbles.3 {
+                0x5 => {
+                    let x = opcode.x;
+                    let i = self.reg_i;
+                    for idx in 0..x {
+                        self.reg_v[idx] = self.ram[i + idx];
+                    }
+                },
+                _ => println!("{}", Cpu::unimplemented_opcode(opcode))
+            },
+            _ => println!("{}", Cpu::unimplemented_opcode(opcode))
+        }
+
+        self.pc += 2;
     }
 
     fn unimplemented_opcode(opcode: Opcode) -> String {
