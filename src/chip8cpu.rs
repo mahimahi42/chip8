@@ -6,6 +6,8 @@ use std::fmt::{Display, Formatter, Result as fmtResult};
 
 use rand::Rng;
 
+use crate::chip8display::Display as chipDisplay;
+
 const RAM: usize = 4096;
 const PROG_START: usize = 0x200;
 
@@ -45,7 +47,7 @@ impl Display for Opcode {
     }
 }
 
-pub struct Cpu {
+pub struct Cpu<'a> {
     reg_v: [u8; 16],
     reg_i: usize,
     reg_d: u8,
@@ -54,10 +56,11 @@ pub struct Cpu {
     sp: usize,
     stack: [usize; 16],
     ram: [u8; RAM],
+    display: &'a mut chipDisplay,
 }
 
-impl Cpu {
-    pub fn new() -> Cpu {
+impl Cpu<'_> {
+    pub fn new(display: &mut chipDisplay) -> Cpu {
         Cpu {
             reg_v: [0; 16],
             reg_i: 0,
@@ -66,7 +69,8 @@ impl Cpu {
             pc: PROG_START,
             sp: 0,
             stack: [0; 16],
-            ram: [0; RAM]
+            ram: [0; RAM],
+            display: display
         }
     }
 
