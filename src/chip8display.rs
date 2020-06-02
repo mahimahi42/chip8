@@ -5,7 +5,7 @@ use sdl2::rect::Rect;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 
-pub const SCALE: u32 = 5;
+pub const SCALE: u32 = 10;
 pub const WIDTH: u32 = 64;
 pub const HEIGHT: u32 = 32;
 pub const SCREEN_WIDTH: u32 = WIDTH * SCALE;
