@@ -3,13 +3,20 @@ use std::io::{Read, Result};
 use std::thread;
 use std::time::Duration;
 use std::fmt::{Display, Formatter, Result as fmtResult};
-
 use rand::Rng;
+
+extern crate sdl2;
+use sdl2::event::Event;
+use sdl2::keyboard::Keycode;
+
+extern crate fps_clock;
+use fps_clock::FpsClock;
 
 use crate::chip8display::{HEIGHT, WIDTH, Display as chipDisplay};
 
 const RAM: usize = 4096;
 const PROG_START: usize = 0x200;
+const FPS: u32 = 60;
 
 pub struct Opcode {
     opcode: u16,
@@ -102,9 +109,19 @@ impl Cpu<'_> {
     }
 
     pub fn execute_rom(&mut self) {
-        let tick_delay = Duration::from_millis(200);
+        //let tick_delay = Duration::from_millis(200);
+        let mut fps_clock = FpsClock::new(FPS);
 
-        loop {
+        'game_loop:loop {
+            for event in self.display.event_pump.poll_iter() {
+                match event {
+                    Event::KeyDown {
+                        keycode: Some(Keycode::Escape), ..
+                    } => { break 'game_loop }
+                    _ => {}
+                }
+            }
+
             let opcode = self.opcode();
 
             self.execute_opcode(opcode);
@@ -113,11 +130,12 @@ impl Cpu<'_> {
                 self.display.draw();
             }
 
-            thread::sleep(tick_delay);
+            fps_clock.tick();
         }
     }
 
     fn execute_opcode(&mut self, opcode: Opcode) {
+        println!("{}", opcode);
         match opcode.nibbles.0 {
             0x0 => self.opcode_0x0(opcode),
             0x1 => self.opcode_0x1(opcode),
@@ -166,7 +184,6 @@ impl Cpu<'_> {
 
     fn opcode_0x1(&mut self, opcode: Opcode) {
         self.pc = opcode.nnn;
-        println!("Set the PC!");
     }
 
     fn opcode_0x2(&mut self, opcode: Opcode) {
@@ -270,6 +287,7 @@ impl Cpu<'_> {
     fn opcode_0xC(&mut self, opcode: Opcode) {
         let rnd = rand::thread_rng().gen_range(0, 256) as u8;
         self.reg_v[opcode.x] = rnd & opcode.kk;
+        self.pc += 2;
     }
 
     #[allow(non_snake_case)]
@@ -285,13 +303,14 @@ impl Cpu<'_> {
             }
         }
         self.display.vram_changed = true;
+        self.pc += 2;
     }
 
     #[allow(non_snake_case)]
     fn opcode_0xE(&mut self, opcode: Opcode) {
-        
-        
-        
+
+
+
     }
 
     #[allow(non_snake_case)]

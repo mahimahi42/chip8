@@ -1,4 +1,5 @@
 extern crate sdl2;
+use sdl2::EventPump;
 use sdl2::pixels;
 use sdl2::rect::Rect;
 use sdl2::render::Canvas;
@@ -13,7 +14,8 @@ pub const SCREEN_HEIGHT: u32 = HEIGHT * SCALE;
 pub struct Display {
     pub canvas: Canvas<Window>,
     pub vram: [[u8; WIDTH as usize]; HEIGHT as usize],
-    pub vram_changed: bool
+    pub vram_changed: bool,
+    pub event_pump: EventPump
 }
 
 impl Display {
@@ -31,10 +33,11 @@ impl Display {
         canvas.clear();
         canvas.present();
 
-        Display { 
+        Display {
             canvas: canvas,
             vram: [[0; WIDTH as usize]; HEIGHT as usize],
-            vram_changed: false
+            vram_changed: false,
+            event_pump: sdl.event_pump().unwrap()
         }
     }
 
