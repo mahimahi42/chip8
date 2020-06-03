@@ -1,3 +1,3 @@
 mod display;
 
-// pub use self::display::{Display as Chip8Display};
+pub use self::display::Chip8Display;
