@@ -1,8 +1,8 @@
 extern crate clap;
 use clap::{Arg, App};
 
-// mod cpu;
-// use cpu::Cpu;
+mod cpu;
+use cpu::Chip8Cpu;
 //
 // mod display;
 // use display::Chip8Display;
@@ -23,8 +23,8 @@ fn main() {
 
     let input_file = args.value_of("input_file").unwrap();
 
-    // let mut proc: Cpu = Cpu::new(&mut display);
-    //
-    // proc.load_rom(input_file);
+    let mut proc = Chip8Cpu::new();
+
+    proc.load_rom(input_file);
     // proc.execute_rom();
 }

@@ -1,3 +1,3 @@
 mod cpu;
 
-// pub use self::cpu::Cpu;
+pub use self::cpu::Chip8Cpu;
