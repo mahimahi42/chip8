@@ -5,6 +5,7 @@ use std::fmt::{Display, Formatter, Result as fmtResult};
 const RAM: usize = 4096;
 const PROG_START: usize = 0x200;
 
+#[derive(Debug)]
 pub struct Opcode {
     opcode: u16,
     nibbles: (u8, u8, u8, u8),
@@ -38,6 +39,19 @@ impl Display for Opcode {
     fn fmt(&self, fmt: &mut Formatter) -> fmtResult {
         fmt.write_str(&format!("{:#06X}", self.opcode))?;
         Ok(())
+    }
+}
+
+impl PartialEq for Opcode {
+    fn eq(&self, rhs: &Opcode) -> bool {
+        if self.opcode != rhs.opcode ||
+           self.nibbles != rhs.nibbles ||
+           self.nnn != rhs.nnn ||
+           self.n != rhs.n ||
+           self.x != rhs.x ||
+           self.y != rhs.y ||
+           self.kk != rhs.kk { false }
+        else { true }
     }
 }
 
@@ -87,6 +101,10 @@ impl Chip8Cpu {
         file.read_to_end(&mut data)?;
 
         return Ok(data);
+    }
+
+    fn fetch_opcode(&self) -> Opcode {
+        Opcode::new((self.ram[self.pc] as u16) << 8 | (self.ram[self.pc + 1] as u16))
     }
 }
 
@@ -210,6 +228,16 @@ mod tests {
             assert_eq!(mem[i], cpu.ram[PROG_START + i]);
         }
     }
+
+    #[test]
+    fn cpu_fetch_opcode() {
+        let rom_path = "/Users/bryce/dev/chip8/roms/c8games/MAZE";
+        let op = Opcode::new(0xA21E);
+        let mut cpu = Chip8Cpu::new();
+        cpu.load_rom(rom_path);
+
+        assert_eq!(op, cpu.fetch_opcode());
+    }
 }
 
 // use rand::Rng;
@@ -226,49 +254,7 @@ mod tests {
 //
 // const FPS: u32 = 20;
 //
-//
 // impl Cpu<'_> {
-//     pub fn new(display: &mut chip8Display) -> Cpu {
-//         Cpu {
-//             reg_v: [0; 16],
-//             reg_i: 0,
-//             reg_d: 0,
-//             reg_s: 0,
-//             pc: PROG_START,
-//             sp: 0,
-//             stack: [0; 16],
-//             ram: [0; RAM],
-//             display: display
-//         }
-//     }
-//
-//     pub fn load_rom(&mut self, path: &str) {
-//         if let Ok(rom) = self.read_rom(path) {
-//             let rom_data: &[u8] = &rom;
-//             for (i, &data) in rom_data.iter().enumerate() {
-//                 let mem_addr = PROG_START + i;
-//                 if mem_addr < 4096 {
-//                     self.ram[mem_addr] = data;
-//                 }
-//             }
-//         } else {
-//             println!("COULD NOT LOAD ROM {}", path);
-//         }
-//     }
-//
-//     fn read_rom(&self, path: &str) -> Result<Vec<u8>> {
-//         let mut file = File::open(path)?;
-//
-//         let mut data = Vec::new();
-//         file.read_to_end(&mut data)?;
-//
-//         return Ok(data);
-//     }
-//
-//     fn opcode(&self) -> Opcode {
-//         Opcode::new((self.ram[self.pc] as u16) << 8 | (self.ram[self.pc + 1] as u16))
-//     }
-//
 //     pub fn execute_rom(&mut self) {
 //         let mut fps_clock = FpsClock::new(FPS);
 //
