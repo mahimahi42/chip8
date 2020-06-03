@@ -1,15 +1,15 @@
 extern crate clap;
 use clap::{Arg, App};
 
-mod chip8cpu;
-use chip8cpu::Cpu;
-
-mod chip8display;
-use chip8display::Display;
+// mod cpu;
+// use cpu::Cpu;
+//
+// mod display;
+// use display::Chip8Display;
 
 fn main() {
-    let sdl = sdl2::init().unwrap();
-    let mut display = Display::new(&sdl);
+    // let sdl = sdl2::init().unwrap();
+    // let mut display = Chip8Display::new(&sdl);
 
     let args = App::new("CHIP-8 Emulator")
                     .version("1.0")
@@ -23,8 +23,8 @@ fn main() {
 
     let input_file = args.value_of("input_file").unwrap();
 
-    let mut proc: Cpu = Cpu::new(&mut display);
-
-    proc.load_rom(input_file);
-    proc.execute_rom();
+    // let mut proc: Cpu = Cpu::new(&mut display);
+    //
+    // proc.load_rom(input_file);
+    // proc.execute_rom();
 }
