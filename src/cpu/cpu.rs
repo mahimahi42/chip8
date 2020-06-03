@@ -55,6 +55,12 @@ impl PartialEq for Opcode {
     }
 }
 
+impl From<u16> for Opcode {
+    fn from(op: u16) -> Self {
+        Opcode::new(op)
+    }
+}
+
 pub struct Chip8Cpu {
     reg_v: [u8; 16],
     reg_i: usize,
@@ -107,11 +113,46 @@ impl Chip8Cpu {
         Opcode::new((self.ram[self.pc] as u16) << 8 | (self.ram[self.pc + 1] as u16))
     }
 
-    fn tick(&mut self) {
-
+    pub fn tick(&mut self) {
+        // TODO
 
         if self.reg_d > 0 { self.reg_d -= 1; }
         if self.reg_s > 0 { self.reg_s -= 1; }
+    }
+
+    fn exec_opcode(&self, op: Opcode) {
+        // TODO
+    }
+
+    fn cls_00E0(&self, op: Opcode) {
+        // TODO
+    }
+
+    fn ret_00EE(&mut self) {
+        self.pc = self.stack[self.sp];
+        self.sp -= 1;
+    }
+
+    fn jp_addr_1nnn(&mut self, op: Opcode) {
+        self.pc = op.nnn;
+    }
+
+    fn call_addr_2nnn(&mut self, op: Opcode) {
+        self.sp += 1;
+        self.stack[self.sp] = self.pc;
+        self.pc = op.nnn;
+    }
+
+    fn se_vx_kk_3xkk(&mut self, op: Opcode) {
+        self.pc += if self.reg_v[op.x] == op.kk { 4 } else { 2 };
+    }
+
+    fn sne_vx_kk_4xkk(&mut self, op: Opcode) {
+        self.pc += if self.reg_v[op.x] != op.kk { 4 } else { 2 };
+    }
+
+    fn se_vx_vy_5xy0(&mut self, op: Opcode) {
+        self.pc += if self.reg_v[op.x] == self.reg_v[op.y] { 4 } else { 2 };
     }
 }
 
@@ -260,6 +301,86 @@ mod tests {
         cpu.reg_s = 42;
         cpu.tick();
         assert_eq!(cpu.reg_s, 41);
+    }
+
+    //#[test]
+    fn cpu_cls_00E0() {
+        panic!("TODO: CLS test");
+    }
+
+    #[test]
+    fn cpu_ret_00EE() {
+        let mut cpu = Chip8Cpu::new();
+        cpu.sp = 1;
+        cpu.stack[cpu.sp] = 0x500;
+        cpu.ret_00EE();
+        assert_eq!(cpu.pc, 0x500);
+    }
+
+    #[test]
+    fn cpu_jp_addr_1nnn() {
+        let mut cpu = Chip8Cpu::new();
+        cpu.jp_addr_1nnn(Opcode::new(0x1500));
+        assert_eq!(cpu.pc, 0x500);
+    }
+
+    #[test]
+    fn cpu_call_addr_2nnn() {
+        let mut cpu = Chip8Cpu::new();
+        cpu.call_addr_2nnn(Opcode::new(0x2500));
+        assert_eq!(cpu.sp, 1);
+        assert_eq!(cpu.stack[cpu.sp], 0x200);
+        assert_eq!(cpu.pc, 0x500);
+    }
+
+    #[test]
+    fn cpu_se_vx_kk_3xkk_eq() {
+        let mut cpu = Chip8Cpu::new();
+        cpu.reg_v[0] = 0x42;
+        cpu.se_vx_kk_3xkk(Opcode::new(0x3042));
+        assert_eq!(cpu.pc, PROG_START + 4);
+    }
+
+    #[test]
+    fn cpu_se_vx_kk_3xkk_neq() {
+        let mut cpu = Chip8Cpu::new();
+        cpu.reg_v[0] = 0x43;
+        cpu.se_vx_kk_3xkk(Opcode::new(0x3042));
+        assert_eq!(cpu.pc, PROG_START + 2);
+    }
+
+    #[test]
+    fn cpu_sne_vx_kk_4xkk_eq() {
+        let mut cpu = Chip8Cpu::new();
+        cpu.reg_v[0] = 0x42;
+        cpu.sne_vx_kk_4xkk(Opcode::new(0x4042));
+        assert_eq!(cpu.pc, PROG_START + 2);
+    }
+
+    #[test]
+    fn cpu_sne_vx_kk_4xkk_neq() {
+        let mut cpu = Chip8Cpu::new();
+        cpu.reg_v[0] = 0x43;
+        cpu.sne_vx_kk_4xkk(Opcode::new(0x3042));
+        assert_eq!(cpu.pc, PROG_START + 4);
+    }
+
+    #[test]
+    fn cpu_se_vx_vy_5xy0_eq() {
+        let mut cpu = Chip8Cpu::new();
+        cpu.reg_v[0] = 0x42;
+        cpu.reg_v[1] = 0x42;
+        cpu.se_vx_vy_5xy0(Opcode::new(0x5010));
+        assert_eq!(cpu.pc, PROG_START + 4);
+    }
+
+    #[test]
+    fn cpu_se_vx_vy_5xy0_neq() {
+        let mut cpu = Chip8Cpu::new();
+        cpu.reg_v[0] = 0x42;
+        cpu.reg_v[1] = 0x43;
+        cpu.se_vx_vy_5xy0(Opcode::new(0x5010));
+        assert_eq!(cpu.pc, PROG_START + 2);
     }
 }
 
