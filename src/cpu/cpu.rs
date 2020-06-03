@@ -3,7 +3,7 @@ use std::io::{Read, Result};
 use std::fmt::{Display, Formatter, Result as fmtResult};
 
 extern crate rand;
-use rand::{SeedableRng, RngCore, Rng};
+use rand::RngCore;
 extern crate rand_pcg;
 
 const RAM: usize = 4096;
@@ -43,7 +43,7 @@ pub struct Opcode {
 impl Opcode {
     pub fn new(opcode: u16) -> Self {
         Opcode {
-            opcode: opcode,
+            opcode,
             nibbles: (
                 ((opcode & 0xF000) >> 12) as u8,
                 ((opcode & 0x0F00) >> 8) as u8,
@@ -114,7 +114,7 @@ impl Chip8Cpu {
             pc: PROG_START,
             sp: 0,
             stack: [0; 16],
-            ram: ram,
+            ram,
             vram: [[0; WIDTH]; HEIGHT],
             vram_update: false,
             beep: false
@@ -163,8 +163,8 @@ impl Chip8Cpu {
     fn decode_opcode(&mut self, op: Opcode, input: [bool; 16]) {
         println!("Opcode: {}", op);
         match op.nibbles {
-            (0x0, 0x0, 0xE, 0x0) => self.cls_00E0(),
-            (0x0, 0x0, 0xE, 0xE) => self.ret_00EE(),
+            (0x0, 0x0, 0xE, 0x0) => self.cls_00e0(),
+            (0x0, 0x0, 0xE, 0xE) => self.ret_00ee(),
             (0x1, _, _, _) => self.jp_addr_1nnn(op),
             (0x2, _, _, _) => self.call_addr_2nnn(op),
             (0x3, _, _, _) => self.se_vx_kk_3xkk(op),
@@ -180,23 +180,23 @@ impl Chip8Cpu {
             (0x8, _, _, 0x5) => self.sub_vx_vy_8xy5(op),
             (0x8, _, _, 0x6) => self.shr_vx_8xy6(op),
             (0x8, _, _, 0x7) => self.subn_vx_vy_8xy7(op),
-            (0x8, _, _, 0xE) => self.shl_vx_8xyE(op),
+            (0x8, _, _, 0xE) => self.shl_vx_8xye(op),
             (0x9, _, _, 0x0) => self.sne_vx_vy_9xy0(op),
-            (0xA, _, _, _) => self.ld_i_addr_Annn(op),
-            (0xB, _, _, _) => self.jp_v0_addr_Bnnn(op),
-            (0xC, _, _, _) => self.rnd_vx_kk_Cxkk(op),
-            (0xD, _, _, _) => self.drw_vx_vy_n_Dxyn(op),
-            (0xE, _, 0x9, 0xE) => self.skp_vx_Ex9E(op, input),
-            (0xE, _, 0xA, 0x1) => self.sknp_vx_ExA1(op, input),
-            (0xF, _, 0x0, 0x7) => self.ld_vx_dt_Fx07(op),
-            (0xF, _, 0x0, 0xA) => self.ld_vx_k_Fx0A(op, input),
-            (0xF, _, 0x1, 0x5) => self.ld_dt_vx_Fx15(op),
-            (0xF, _, 0x1, 0x8) => self.ld_st_vx_Fx18(op),
-            (0xF, _, 0x1, 0xE) => self.add_i_vx_Fx1E(op),
-            (0xF, _, 0x2, 0x9) => self.ld_f_vx_Fx29(op),
-            (0xF, _, 0x3, 0x3) => self.ld_b_vx_Fx33(op),
-            (0xF, _, 0x5, 0x5) => self.ld_i_vx_Fx55(op),
-            (0xF, _, 0x6, 0x5) => self.ld_vx_i_Fx65(op),
+            (0xA, _, _, _) => self.ld_i_addr_annn(op),
+            (0xB, _, _, _) => self.jp_v0_addr_bnnn(op),
+            (0xC, _, _, _) => self.rnd_vx_kk_cxkk(op),
+            (0xD, _, _, _) => self.drw_vx_vy_n_dxyn(op),
+            (0xE, _, 0x9, 0xE) => self.skp_vx_ex9e(op, input),
+            (0xE, _, 0xA, 0x1) => self.sknp_vx_exa1(op, input),
+            (0xF, _, 0x0, 0x7) => self.ld_vx_dt_fx07(op),
+            (0xF, _, 0x0, 0xA) => self.ld_vx_k_fx0a(op, input),
+            (0xF, _, 0x1, 0x5) => self.ld_dt_vx_fx15(op),
+            (0xF, _, 0x1, 0x8) => self.ld_st_vx_fx18(op),
+            (0xF, _, 0x1, 0xE) => self.add_i_vx_fx1e(op),
+            (0xF, _, 0x2, 0x9) => self.ld_f_vx_fx29(op),
+            (0xF, _, 0x3, 0x3) => self.ld_b_vx_fx33(op),
+            (0xF, _, 0x5, 0x5) => self.ld_i_vx_fx55(op),
+            (0xF, _, 0x6, 0x5) => self.ld_vx_i_fx65(op),
             _ => {
                 println!("Unimplemented opcode: {}", op);
                 self.pc += 2;
@@ -204,7 +204,7 @@ impl Chip8Cpu {
         }
     }
 
-    fn cls_00E0(&mut self) {
+    fn cls_00e0(&mut self) {
         for y in 0..HEIGHT {
             for x in 0..WIDTH {
                 self.vram[y][x] = 0x0;
@@ -214,7 +214,7 @@ impl Chip8Cpu {
         self.pc += 2;
     }
 
-    fn ret_00EE(&mut self) {
+    fn ret_00ee(&mut self) {
         self.sp -= 1;
         self.pc = self.stack[self.sp];
     }
@@ -299,7 +299,7 @@ impl Chip8Cpu {
         self.pc += 2;
     }
 
-    fn shl_vx_8xyE(&mut self, op: Opcode) {
+    fn shl_vx_8xye(&mut self, op: Opcode) {
         self.reg_v[0xF] = (self.reg_v[op.x] & 0x80) >> 7;
         self.reg_v[op.x] <<= 1;
         self.pc += 2;
@@ -309,23 +309,23 @@ impl Chip8Cpu {
         self.pc += if self.reg_v[op.x] != self.reg_v[op.y] { 4 } else { 2 };
     }
 
-    fn ld_i_addr_Annn(&mut self, op: Opcode) {
+    fn ld_i_addr_annn(&mut self, op: Opcode) {
         self.reg_i = op.nnn;
         self.pc += 2;
     }
 
-    fn jp_v0_addr_Bnnn(&mut self, op: Opcode) {
+    fn jp_v0_addr_bnnn(&mut self, op: Opcode) {
         self.pc = op.nnn + (self.reg_v[0] as usize);
     }
 
-    fn rnd_vx_kk_Cxkk(&mut self, op: Opcode) {
+    fn rnd_vx_kk_cxkk(&mut self, op: Opcode) {
         let mut rng = rand::thread_rng();
         let tmp = (rng.next_u32() as u8) & op.kk;
         self.reg_v[op.x] = tmp as u8;
         self.pc += 2;
     }
 
-    fn drw_vx_vy_n_Dxyn(&mut self, op: Opcode) {
+    fn drw_vx_vy_n_dxyn(&mut self, op: Opcode) {
         self.reg_v[0xF] = 0;
         for byte in 0..op.n {
             let y = (self.reg_v[op.y] as usize + byte) % HEIGHT as usize;
@@ -340,7 +340,7 @@ impl Chip8Cpu {
         self.pc += 2;
     }
 
-    fn skp_vx_Ex9E(&mut self, op: Opcode, input: [bool; 16]) {
+    fn skp_vx_ex9e(&mut self, op: Opcode, input: [bool; 16]) {
         let mut skip: bool = false;
 
         if input[self.reg_v[op.x] as usize] { skip = true; }
@@ -349,7 +349,7 @@ impl Chip8Cpu {
 
     }
 
-    fn sknp_vx_ExA1(&mut self, op: Opcode, input: [bool; 16]) {
+    fn sknp_vx_exa1(&mut self, op: Opcode, input: [bool; 16]) {
         let mut skip: bool = false;
 
         if !input[self.reg_v[op.x] as usize] { skip = true; }
@@ -358,12 +358,12 @@ impl Chip8Cpu {
 
     }
 
-    fn ld_vx_dt_Fx07(&mut self, op: Opcode) {
+    fn ld_vx_dt_fx07(&mut self, op: Opcode) {
         self.reg_v[op.x] = self.reg_d;
         self.pc += 2;
     }
 
-    fn ld_vx_k_Fx0A(&mut self, op: Opcode, input: [bool; 16]) {
+    fn ld_vx_k_fx0a(&mut self, op: Opcode, input: [bool; 16]) {
         for i in 0..input.len() {
             if input[i] {
                 self.reg_v[op.x] = i as u8;
@@ -372,42 +372,42 @@ impl Chip8Cpu {
         }
     }
 
-    fn ld_dt_vx_Fx15(&mut self, op: Opcode) {
+    fn ld_dt_vx_fx15(&mut self, op: Opcode) {
         self.reg_d = self.reg_v[op.x];
         self.pc += 2;
     }
 
-    fn ld_st_vx_Fx18(&mut self, op: Opcode) {
+    fn ld_st_vx_fx18(&mut self, op: Opcode) {
         self.reg_s = self.reg_v[op.x];
         self.pc += 2;
     }
 
-    fn add_i_vx_Fx1E(&mut self, op: Opcode) {
+    fn add_i_vx_fx1e(&mut self, op: Opcode) {
         self.reg_i += self.reg_v[op.x] as usize;
         self.reg_v[0xF] = if self.reg_i > 0x0F00 { 1 } else { 0 };
         self.pc += 2;
     }
 
-    fn ld_f_vx_Fx29(&mut self, op: Opcode) {
+    fn ld_f_vx_fx29(&mut self, op: Opcode) {
         self.reg_i = 5 * (self.reg_v[op.x] as usize);
         self.pc += 2;
     }
 
-    fn ld_b_vx_Fx33(&mut self, op: Opcode) {
+    fn ld_b_vx_fx33(&mut self, op: Opcode) {
         self.ram[self.reg_i] = self.reg_v[op.x] / 100;
         self.ram[self.reg_i + 1] = (self.reg_v[op.x] % 100) / 10;
         self.ram[self.reg_i + 2] = self.reg_v[op.x] % 10;
         self.pc += 2;
     }
 
-    fn ld_i_vx_Fx55(&mut self, op: Opcode) {
+    fn ld_i_vx_fx55(&mut self, op: Opcode) {
         for i in 0..op.x + 1 {
             self.ram[self.reg_i + i] = self.reg_v[i];
         }
         self.pc += 2;
     }
 
-    fn ld_vx_i_Fx65(&mut self, op: Opcode) {
+    fn ld_vx_i_fx65(&mut self, op: Opcode) {
         for i in 0..op.x + 1 {
              self.reg_v[i] = self.ram[self.reg_i + i];
         }
@@ -580,16 +580,16 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn cpu_cls_00E0() {
+    fn cpu_cls_00e0() {
         panic!("TODO: CLS test");
     }
 
     #[test]
-    fn cpu_ret_00EE() {
+    fn cpu_ret_00ee() {
         let mut cpu = Chip8Cpu::new();
         cpu.sp = 1;
         cpu.stack[cpu.sp] = 0x500;
-        cpu.ret_00EE();
+        cpu.ret_00ee();
         assert_eq!(cpu.pc, 0x500);
     }
 
@@ -803,20 +803,20 @@ mod tests {
     }
 
     #[test]
-    fn cpu_shl_vx_8xyE_msb_one() {
+    fn cpu_shl_vx_8xye_msb_one() {
         let mut cpu = Chip8Cpu::new();
         cpu.reg_v[0] = 0xC0;
-        cpu.shl_vx_8xyE(Opcode::new(0x801E));
+        cpu.shl_vx_8xye(Opcode::new(0x801E));
         assert_eq!(cpu.reg_v[0xF], 0x1);
         assert_eq!(cpu.reg_v[0], 0x80);
         assert_eq!(cpu.pc, PROG_START + 2);
     }
 
     #[test]
-    fn cpu_shl_vx_8xyE_msb_zero() {
+    fn cpu_shl_vx_8xye_msb_zero() {
         let mut cpu = Chip8Cpu::new();
         cpu.reg_v[0] = 0x40;
-        cpu.shl_vx_8xyE(Opcode::new(0x801E));
+        cpu.shl_vx_8xye(Opcode::new(0x801E));
         assert_eq!(cpu.reg_v[0xF], 0x0);
         assert_eq!(cpu.reg_v[0], 0x80);
         assert_eq!(cpu.pc, PROG_START + 2);
@@ -838,105 +838,105 @@ mod tests {
     }
 
     #[test]
-    fn cpu_ld_i_addr_Annn() {
+    fn cpu_ld_i_addr_annn() {
         let mut cpu = Chip8Cpu::new();
-        cpu.ld_i_addr_Annn(Opcode::new(0xA555));
+        cpu.ld_i_addr_annn(Opcode::new(0xA555));
         assert_eq!(cpu.reg_i, 0x555);
         assert_eq!(cpu.pc, PROG_START + 2);
     }
 
     #[test]
-    fn cpu_jp_v0_addr_Bnnn() {
+    fn cpu_jp_v0_addr_bnnn() {
         let mut cpu = Chip8Cpu::new();
         cpu.reg_v[0] = 0x55;
-        cpu.jp_v0_addr_Bnnn(Opcode::new(0xB500));
+        cpu.jp_v0_addr_bnnn(Opcode::new(0xB500));
         assert_eq!(cpu.pc, 0x555);
     }
 
     #[test]
     #[ignore]
-    fn cpu_rnd_vx_kk_Cxkk() {
+    fn cpu_rnd_vx_kk_cxkk() {
         let mut cpu = Chip8Cpu::new();
-        cpu.rnd_vx_kk_Cxkk(Opcode::new(0xC0FF));
+        cpu.rnd_vx_kk_cxkk(Opcode::new(0xC0FF));
         assert_eq!(cpu.reg_v[0], 0x48);
         assert_eq!(cpu.pc, PROG_START + 2);
     }
 
     #[test]
     #[ignore]
-    fn cpu_drw_vx_vy_n_Dxyn() {
+    fn cpu_drw_vx_vy_n_dxyn() {
 
     }
 
     #[test]
     #[ignore]
-    fn cpu_skp_vx_Ex9E() {
+    fn cpu_skp_vx_ex9e() {
 
     }
 
     #[test]
     #[ignore]
-    fn cpu_sknp_vx_ExA1() {
+    fn cpu_sknp_vx_exa1() {
 
     }
 
     #[test]
-    fn cpu_ld_vx_dt_Fx07() {
+    fn cpu_ld_vx_dt_fx07() {
         let mut cpu = Chip8Cpu::new();
         cpu.reg_d = 0x42;
-        cpu.ld_vx_dt_Fx07(Opcode::new(0xF007));
+        cpu.ld_vx_dt_fx07(Opcode::new(0xF007));
         assert_eq!(cpu.reg_v[0], 0x42);
         assert_eq!(cpu.pc, PROG_START + 2);
     }
 
     #[test]
     #[ignore]
-    fn cpu_ld_vx_key_Fx0A() {
+    fn cpu_ld_vx_key_fx0a() {
 
     }
 
     #[test]
-    fn cpu_ld_dt_vx_Fx15() {
+    fn cpu_ld_dt_vx_fx15() {
         let mut cpu = Chip8Cpu::new();
         cpu.reg_v[0] = 0x42;
-        cpu.ld_dt_vx_Fx15(Opcode::new(0xF015));
+        cpu.ld_dt_vx_fx15(Opcode::new(0xF015));
         assert_eq!(cpu.reg_d, 0x42);
         assert_eq!(cpu.pc, PROG_START + 2);
     }
 
     #[test]
-    fn cpu_ld_st_vx_Fx18() {
+    fn cpu_ld_st_vx_fx18() {
         let mut cpu = Chip8Cpu::new();
         cpu.reg_v[0] = 0x42;
-        cpu.ld_st_vx_Fx18(Opcode::new(0xF018));
+        cpu.ld_st_vx_fx18(Opcode::new(0xF018));
         assert_eq!(cpu.reg_s, 0x42);
         assert_eq!(cpu.pc, PROG_START + 2);
     }
 
     #[test]
-    fn cpu_add_i_vx_Fx1E() {
+    fn cpu_add_i_vx_fx1e() {
         let mut cpu = Chip8Cpu::new();
         cpu.reg_i = 0x01;
         cpu.reg_v[0] = 0x41;
-        cpu.add_i_vx_Fx1E(Opcode::new(0xF01E));
+        cpu.add_i_vx_fx1e(Opcode::new(0xF01E));
         assert_eq!(cpu.reg_i, 0x42);
         assert_eq!(cpu.pc, PROG_START + 2);
     }
 
     #[test]
-    fn cpu_ld_f_vx_Fx29() {
+    fn cpu_ld_f_vx_fx29() {
         let mut cpu = Chip8Cpu::new();
         cpu.reg_v[0] = 0x2;
-        cpu.ld_f_vx_Fx29(Opcode::new(0xF029));
+        cpu.ld_f_vx_fx29(Opcode::new(0xF029));
         assert_eq!(cpu.reg_i, 0xA);
         assert_eq!(cpu.pc, PROG_START + 2);
     }
 
     #[test]
-    fn cpu_ld_b_vx_Fx33() {
+    fn cpu_ld_b_vx_fx33() {
         let mut cpu = Chip8Cpu::new();
         cpu.reg_v[0] = 0xEA;
-        cpu.ld_b_vx_Fx33(Opcode::new(0xF033));
+        cpu.ld_b_vx_fx33(Opcode::new(0xF033));
         assert_eq!(cpu.ram[cpu.reg_i], 0x2);
         assert_eq!(cpu.ram[cpu.reg_i + 1], 0x3);
         assert_eq!(cpu.ram[cpu.reg_i + 2], 0x4);
@@ -944,12 +944,12 @@ mod tests {
     }
 
     #[test]
-    fn cpu_ld_i_vx_Fx55() {
+    fn cpu_ld_i_vx_fx55() {
         let mut cpu = Chip8Cpu::new();
         for i in 0..3 {
             cpu.reg_v[i] = 0x1;
         }
-        cpu.ld_i_vx_Fx55(Opcode::new(0xF355));
+        cpu.ld_i_vx_fx55(Opcode::new(0xF355));
         for i in 0..3 {
             assert_eq!(cpu.ram[cpu.reg_i + i], 0x1);
         }
@@ -957,12 +957,12 @@ mod tests {
     }
 
     #[test]
-    fn cpu_ld_vx_i_Fx65() {
+    fn cpu_ld_vx_i_fx65() {
         let mut cpu = Chip8Cpu::new();
         for i in 0..3 {
             cpu.ram[cpu.reg_i + i] = 0x1;
         }
-        cpu.ld_vx_i_Fx65(Opcode::new(0xF365));
+        cpu.ld_vx_i_fx65(Opcode::new(0xF365));
         for i in 0..3 {
             assert_eq!(cpu.reg_v[i], 0x1);
         }

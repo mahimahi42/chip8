@@ -1,5 +1,4 @@
 extern crate sdl2;
-use sdl2::EventPump;
 use sdl2::pixels;
 use sdl2::rect::Rect;
 use sdl2::render::Canvas;
@@ -8,21 +7,33 @@ use sdl2::video::Window;
 const SCALE: u32 = 10;
 const HEIGHT: u32 = 32;
 const WIDTH: u32 = 64;
-const SCREEN_HEIGHT: u32 = SCALE * HEIGHT;
-const SCREEN_WIDTH: u32 = SCALE * WIDTH;
+const GAME_SCREEN_HEIGHT: u32 = SCALE * HEIGHT;
+const GAME_SCREEN_WIDTH: u32 = SCALE * WIDTH;
+const SCREEN_HEIGHT: u32 = GAME_SCREEN_HEIGHT + 100;
+const SCREEN_WIDTH: u32 = GAME_SCREEN_WIDTH + 200;
 
 pub struct Chip8Display {
     canvas: Canvas<Window>,
 }
 
 impl Chip8Display {
-    pub fn new(sdl: &sdl2::Sdl) -> Self {
+    pub fn new(sdl: &sdl2::Sdl, debug: bool) -> Self {
         let vid = sdl.video().unwrap();
-        let window = vid.window("CHIP-8", SCREEN_WIDTH, SCREEN_HEIGHT)
+        let window = if debug {
+            vid.window("CHIP-8", SCREEN_WIDTH, SCREEN_HEIGHT)
                         .position_centered()
                         .opengl()
                         .build()
-                        .unwrap();
+                        .unwrap()
+        } else {
+            vid.window("CHIP-8", GAME_SCREEN_WIDTH, GAME_SCREEN_HEIGHT)
+                        .position_centered()
+                        .opengl()
+                        .build()
+                        .unwrap()
+        };
+
+
         let mut canvas = window.into_canvas().build().unwrap();
 
         canvas.set_draw_color(pixels::Color::RGB(0, 0, 0));

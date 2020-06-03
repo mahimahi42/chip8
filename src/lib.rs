@@ -1,4 +1,4 @@
-mod audio;
-mod cpu;
-mod display;
-mod input;
+pub mod audio;
+pub mod cpu;
+pub mod display;
+pub mod input;

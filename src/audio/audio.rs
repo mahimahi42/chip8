@@ -5,7 +5,7 @@ pub struct Chip8Audio {
 }
 
 impl Chip8Audio {
-    pub fn new(sdl: &sdl2::Sdl) -> Self {
+    pub fn new(sdl: &sdl2::Sdl) -> Chip8Audio {
         let audio_subsystem = sdl.audio().unwrap();
 
         let desired_spec = AudioSpecDesired {

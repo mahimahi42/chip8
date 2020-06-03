@@ -25,16 +25,22 @@ fn main() {
                     .version("1.0")
                     .author("Bryce Davis <me@bryceadavis.com>")
                     .about("CHIP-8 Emulator written in Rust")
-                        .arg(Arg::with_name("input_file")
-                            .help("Input ROM file")
-                            .required(true)
-                            .index(1))
-                        .get_matches();
+                    .arg(Arg::with_name("debug")
+                        .short("d")
+                        .long("debug")
+                        .help("Enable debugging mode")
+                        .takes_value(false))
+                    .arg(Arg::with_name("input_file")
+                        .help("Input ROM file")
+                        .required(true)
+                        .index(1))
+                    .get_matches();
 
     let input_file = args.value_of("input_file").unwrap();
+    let debug = args.is_present("debug");
 
     let mut proc = Chip8Cpu::new();
-    let mut display = Chip8Display::new(&sdl);
+    let mut display = Chip8Display::new(&sdl, debug);
     let mut input = Chip8Input::new(&sdl);
     let audio = Chip8Audio::new(&sdl);
     let mut fps_clock = FpsClock::new(FPS);
