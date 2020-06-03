@@ -1,15 +1,25 @@
 extern crate clap;
 use clap::{Arg, App};
 
-mod chip8cpu;
-use chip8cpu::Cpu;
+extern crate fps_clock;
+use fps_clock::FpsClock;
 
-mod chip8display;
-use chip8display::Display;
+use sdl2::event::Event;
+use sdl2::keyboard::Keycode;
+
+mod cpu;
+use cpu::Chip8Cpu;
+mod display;
+use display::Chip8Display;
+mod input;
+use input::Chip8Input;
+mod audio;
+use audio::Chip8Audio;
+
+const FPS: u32 = 60;
 
 fn main() {
     let sdl = sdl2::init().unwrap();
-    let mut display = Display::new(&sdl);
 
     let args = App::new("CHIP-8 Emulator")
                     .version("1.0")
@@ -23,8 +33,36 @@ fn main() {
 
     let input_file = args.value_of("input_file").unwrap();
 
-    let mut proc: Cpu = Cpu::new(&mut display);
+    let mut proc = Chip8Cpu::new();
+    let mut display = Chip8Display::new(&sdl);
+    let mut input = Chip8Input::new(&sdl);
+    let audio = Chip8Audio::new(&sdl);
+    let mut fps_clock = FpsClock::new(FPS);
 
     proc.load_rom(input_file);
-    proc.execute_rom();
+
+    'game_loop:loop {
+        for event in input.event_pump.poll_iter() {
+            match event {
+                Event::KeyDown {
+                    keycode: Some(Keycode::Escape), ..
+                } => { break 'game_loop },
+                _ => {}
+            }
+        }
+
+        proc.tick(input.poll());
+
+        if proc.vram_update {
+            display.draw(&proc.vram);
+        }
+
+        if proc.beep {
+            audio.play();
+        } else {
+            audio.stop();
+        }
+
+        fps_clock.tick();
+    }
 }
