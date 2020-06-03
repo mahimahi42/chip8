@@ -10,6 +10,24 @@ const RAM: usize = 4096;
 const HEIGHT: usize = 32;
 const WIDTH: usize = 64;
 const PROG_START: usize = 0x200;
+const FONT: [u8; 80] = [
+    0xF0, 0x90, 0x90, 0x90, 0xF0,
+    0x20, 0x60, 0x20, 0x20, 0x70,
+    0xF0, 0x10, 0xF0, 0x80, 0xF0,
+    0xF0, 0x10, 0xF0, 0x10, 0xF0,
+    0x90, 0x90, 0xF0, 0x10, 0x10,
+    0xF0, 0x80, 0xF0, 0x10, 0xF0,
+    0xF0, 0x80, 0xF0, 0x90, 0xF0,
+    0xF0, 0x10, 0x20, 0x40, 0x40,
+    0xF0, 0x90, 0xF0, 0x90, 0xF0,
+    0xF0, 0x90, 0xF0, 0x10, 0xF0,
+    0xF0, 0x90, 0xF0, 0x90, 0x90,
+    0xE0, 0x90, 0xE0, 0x90, 0xE0,
+    0xF0, 0x80, 0x80, 0x80, 0xF0,
+    0xE0, 0x90, 0x90, 0x90, 0xE0,
+    0xF0, 0x80, 0xF0, 0x80, 0xF0,
+    0xF0, 0x80, 0xF0, 0x80, 0x80,
+];
 
 #[derive(Debug)]
 pub struct Opcode {
@@ -82,6 +100,11 @@ pub struct Chip8Cpu {
 
 impl Chip8Cpu {
     pub fn new() -> Self {
+        let mut ram = [0; RAM];
+        for i in 0..FONT.len() {
+            ram[i] = FONT[i];
+        }
+
         Chip8Cpu {
             reg_v: [0; 16],
             reg_i: 0,
@@ -90,7 +113,7 @@ impl Chip8Cpu {
             pc: PROG_START,
             sp: 0,
             stack: [0; 16],
-            ram: [0; RAM],
+            ram: ram,
             vram: [[0; WIDTH]; HEIGHT],
             vram_update: false,
         }
@@ -185,8 +208,8 @@ impl Chip8Cpu {
     }
 
     fn ret_00EE(&mut self) {
-        self.pc = self.stack[self.sp];
         self.sp -= 1;
+        self.pc = self.stack[self.sp];
     }
 
     fn jp_addr_1nnn(&mut self, op: Opcode) {
@@ -194,8 +217,8 @@ impl Chip8Cpu {
     }
 
     fn call_addr_2nnn(&mut self, op: Opcode) {
+        self.stack[self.sp] = self.pc + 2;
         self.sp += 1;
-        self.stack[self.sp] = self.pc;
         self.pc = op.nnn;
     }
 
@@ -353,8 +376,8 @@ impl Chip8Cpu {
     }
 
     fn add_i_vx_Fx1E(&mut self, op: Opcode) {
-        let tmp = (self.reg_i as u16).wrapping_add(self.reg_v[op.x] as u16);
-        self.reg_i = tmp as usize;
+        self.reg_i += self.reg_v[op.x] as usize;
+        self.reg_v[0xF] = if self.reg_i > 0x0F00 { 1 } else { 0 };
         self.pc += 2;
     }
 
@@ -365,20 +388,20 @@ impl Chip8Cpu {
 
     fn ld_b_vx_Fx33(&mut self, op: Opcode) {
         self.ram[self.reg_i] = self.reg_v[op.x] / 100;
-        self.ram[self.reg_i + 1] = (self.reg_v[op.x] / 10) % 10;
+        self.ram[self.reg_i + 1] = (self.reg_v[op.x] % 100) / 10;
         self.ram[self.reg_i + 2] = self.reg_v[op.x] % 10;
         self.pc += 2;
     }
 
     fn ld_i_vx_Fx55(&mut self, op: Opcode) {
-        for i in 0..op.x {
+        for i in 0..op.x + 1 {
             self.ram[self.reg_i + i] = self.reg_v[i];
         }
         self.pc += 2;
     }
 
     fn ld_vx_i_Fx65(&mut self, op: Opcode) {
-        for i in 0..op.x {
+        for i in 0..op.x + 1 {
              self.reg_v[i] = self.ram[self.reg_i + i];
         }
         self.pc += 2;
