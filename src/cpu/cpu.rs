@@ -1,3 +1,86 @@
+pub struct Opcode {
+    opcode: u16,
+    nibbles: (u8, u8, u8, u8),
+    nnn: usize,
+    n: usize,
+    x: usize,
+    y: usize,
+    kk: u8
+}
+
+impl Opcode {
+    pub fn new(opcode: u16) -> Self {
+        Opcode {
+            opcode: opcode,
+            nibbles: (
+                ((opcode & 0xF000) >> 12) as u8,
+                ((opcode & 0x0F00) >> 8) as u8,
+                ((opcode & 0x00F0) >> 4) as u8,
+                (opcode & 0x000F) as u8
+                ),
+                nnn: (opcode & 0xFFF) as usize,
+                n: (opcode & 0x000F) as usize,
+                x: ((opcode & 0x0F00) >> 8) as usize,
+                y: ((opcode & 0x00F0) >> 4) as usize,
+                kk: (opcode & 0x00FF) as u8
+        }
+    }
+}
+
+impl Display for Opcode {
+    fn fmt(&self, fmt: &mut Formatter) -> fmtResult {
+        fmt.write_str(&format!("{:#06X}", self.opcode))?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn opcode_opcode() {
+        let opcode = Opcode::new(0xF333);
+        assert_eq!(opcode.opcode, 0xF333);
+    }
+
+    #[test]
+    fn opcode_nibbles() {
+        let opcode = Opcode::new(0xF333);
+        assert_eq!(opcode.nibbles, (0xF, 0x3, 0x3, 0x3));
+    }
+
+    #[test]
+    fn opcode_nnn() {
+        let opcode = Opcode::new(0xF333);
+        assert_eq!(opcode.nnn, 0x333);
+    }
+
+    #[test]
+    fn opcode_n() {
+        let opcode = Opcode::new(0xF123);
+        assert_eq!(opcode.n, 0x3);
+    }
+
+    #[test]
+    fn opcode_x() {
+        let opcode = Opcode::new(0xF123);
+        assert_eq!(opcode.x, 0x1);
+    }
+
+    #[test]
+    fn opcode_y() {
+        let opcode = Opcode::new(0xF123);
+        assert_eq!(opcode.y, 0x2);
+    }
+
+    #[test]
+    fn opcode_kk() {
+        let opcode = Opcode::new(0xF123);
+        assert_eq!(opcode.kk, 0x23);
+    }
+}
+
 // use std::fs::File;
 // use std::io::{Read, Result};
 // use std::fmt::{Display, Formatter, Result as fmtResult};
