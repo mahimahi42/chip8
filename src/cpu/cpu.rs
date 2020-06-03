@@ -1,3 +1,10 @@
+use std::fs::File;
+use std::io::{Read, Result};
+use std::fmt::{Display, Formatter, Result as fmtResult};
+
+const RAM: usize = 4096;
+const PROG_START: usize = 0x200;
+
 pub struct Opcode {
     opcode: u16,
     nibbles: (u8, u8, u8, u8),
@@ -31,6 +38,55 @@ impl Display for Opcode {
     fn fmt(&self, fmt: &mut Formatter) -> fmtResult {
         fmt.write_str(&format!("{:#06X}", self.opcode))?;
         Ok(())
+    }
+}
+
+pub struct Chip8Cpu {
+    reg_v: [u8; 16],
+    reg_i: usize,
+    reg_d: u8,
+    reg_s: u8,
+    pc: usize,
+    sp: usize,
+    stack: [usize; 16],
+    ram: [u8; RAM]
+}
+
+impl Chip8Cpu {
+    pub fn new() -> Self {
+        Chip8Cpu {
+            reg_v: [0; 16],
+            reg_i: 0,
+            reg_d: 0,
+            reg_s: 0,
+            pc: PROG_START,
+            sp: 0,
+            stack: [0; 16],
+            ram: [0; RAM],
+        }
+    }
+
+    pub fn load_rom(&mut self, path: &str) {
+        if let Ok(rom) = self.read_rom(path) {
+            let rom_data: &[u8] = &rom;
+            for (i, &data) in rom_data.iter().enumerate() {
+                let mem_addr = PROG_START + i;
+                if mem_addr < 4096 {
+                    self.ram[mem_addr] = data;
+                }
+            }
+        } else {
+            println!("COULD NOT LOAD ROM {}", path);
+        }
+    }
+
+    fn read_rom(&self, path: &str) -> Result<Vec<u8>> {
+        let mut file = File::open(path)?;
+
+        let mut data = Vec::new();
+        file.read_to_end(&mut data)?;
+
+        return Ok(data);
     }
 }
 
@@ -79,11 +135,83 @@ mod tests {
         let opcode = Opcode::new(0xF123);
         assert_eq!(opcode.kk, 0x23);
     }
+
+    #[test]
+    fn cpu_v() {
+        let cpu = Chip8Cpu::new();
+        for i in 0..16 {
+            assert_eq!(cpu.reg_v[i], 0);
+        }
+    }
+
+    #[test]
+    fn cpu_i() {
+        let cpu = Chip8Cpu::new();
+        assert_eq!(cpu.reg_i, 0);
+    }
+
+    #[test]
+    fn cpu_d() {
+        let cpu = Chip8Cpu::new();
+        assert_eq!(cpu.reg_d, 0);
+    }
+
+    #[test]
+    fn cpu_s() {
+        let cpu = Chip8Cpu::new();
+        assert_eq!(cpu.reg_s, 0);
+    }
+
+    #[test]
+    fn cpu_pc() {
+        let cpu = Chip8Cpu::new();
+        assert_eq!(cpu.pc, PROG_START);
+    }
+
+    #[test]
+    fn cpu_sp() {
+        let cpu = Chip8Cpu::new();
+        assert_eq!(cpu.sp, 0);
+    }
+
+    #[test]
+    fn cpu_stack() {
+        let cpu = Chip8Cpu::new();
+        for i in 0..16 {
+            assert_eq!(cpu.stack[i], 0);
+        }
+    }
+
+    #[test]
+    fn cpu_ram() {
+        let cpu = Chip8Cpu::new();
+        for i in 0..RAM {
+            assert_eq!(cpu.ram[i], 0);
+        }
+    }
+
+    #[test]
+    fn cpu_load_rom() {
+        let rom_path = "/Users/bryce/dev/chip8/roms/c8games/MAZE";
+        let mem = [
+            0xA2, 0x1E, 0xC2, 0x01,
+            0x32, 0x01, 0xA2, 0x1A,
+            0xD0, 0x14, 0x70, 0x04,
+            0x30, 0x40, 0x12, 0x00,
+            0x60, 0x00, 0x71, 0x04,
+            0x31, 0x20, 0x12, 0x00,
+            0x12, 0x18, 0x80, 0x40,
+            0x20, 0x10, 0x20, 0x40,
+            0x80, 0x10
+        ];
+        let mut cpu = Chip8Cpu::new();
+        cpu.load_rom(rom_path);
+        for i in 0..34 {
+            assert_eq!(mem[i], cpu.ram[PROG_START + i]);
+        }
+    }
 }
 
-// use std::fs::File;
-// use std::io::{Read, Result};
-// use std::fmt::{Display, Formatter, Result as fmtResult};
 // use rand::Rng;
 //
 // extern crate sdl2;
@@ -96,57 +224,8 @@ mod tests {
 // mod display;
 // use display::Chip8Display;
 //
-// const RAM: usize = 4096;
-// const PROG_START: usize = 0x200;
 // const FPS: u32 = 20;
 //
-// pub struct Opcode {
-//     opcode: u16,
-//     nibbles: (u8, u8, u8, u8),
-//     nnn: usize,
-//     n: usize,
-//     x: usize,
-//     y: usize,
-//     kk: u8
-// }
-//
-// impl Opcode {
-//     pub fn new(opcode: u16) -> Self {
-//         Opcode {
-//             opcode: opcode,
-//             nibbles: (
-//                 ((opcode & 0xF000) >> 12) as u8,
-//                 ((opcode & 0x0F00) >> 8) as u8,
-//                 ((opcode & 0x00F0) >> 4) as u8,
-//                 (opcode & 0x000F) as u8
-//                 ),
-//             nnn: (opcode & 0xFFF) as usize,
-//             n: (opcode & 0x000F) as usize,
-//             x: ((opcode & 0x0F00) >> 8) as usize,
-//             y: ((opcode & 0x00F0) >> 4) as usize,
-//             kk: (opcode & 0x00FF) as u8
-//         }
-//     }
-// }
-//
-// impl Display for Opcode {
-//     fn fmt(&self, fmt: &mut Formatter) -> fmtResult {
-//         fmt.write_str(&format!("{:#06X}", self.opcode))?;
-//         Ok(())
-//     }
-// }
-//
-// pub struct Cpu<'a> {
-//     reg_v: [u8; 16],
-//     reg_i: usize,
-//     reg_d: u8,
-//     reg_s: u8,
-//     pc: usize,
-//     sp: usize,
-//     stack: [usize; 16],
-//     ram: [u8; RAM],
-//     display: &'a mut chip8Display,
-// }
 //
 // impl Cpu<'_> {
 //     pub fn new(display: &mut chip8Display) -> Cpu {
