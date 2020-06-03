@@ -106,6 +106,13 @@ impl Chip8Cpu {
     fn fetch_opcode(&self) -> Opcode {
         Opcode::new((self.ram[self.pc] as u16) << 8 | (self.ram[self.pc + 1] as u16))
     }
+
+    fn tick(&mut self) {
+
+
+        if self.reg_d > 0 { self.reg_d -= 1; }
+        if self.reg_s > 0 { self.reg_s -= 1; }
+    }
 }
 
 #[cfg(test)]
@@ -237,6 +244,22 @@ mod tests {
         cpu.load_rom(rom_path);
 
         assert_eq!(op, cpu.fetch_opcode());
+    }
+
+    #[test]
+    fn cpu_test_delay_timer() {
+        let mut cpu = Chip8Cpu::new();
+        cpu.reg_d = 42;
+        cpu.tick();
+        assert_eq!(cpu.reg_d, 41);
+    }
+
+    #[test]
+    fn cpu_test_sound_timer() {
+        let mut cpu = Chip8Cpu::new();
+        cpu.reg_s = 42;
+        cpu.tick();
+        assert_eq!(cpu.reg_s, 41);
     }
 }
 
