@@ -1,11 +1,16 @@
 extern crate clap;
 use clap::{Arg, App};
 
+extern crate fps_clock;
+use fps_clock::FpsClock;
+
 mod cpu;
 use cpu::Chip8Cpu;
 //
 // mod display;
 // use display::Chip8Display;
+
+const FPS: u32 = 60;
 
 fn main() {
     // let sdl = sdl2::init().unwrap();
@@ -24,7 +29,14 @@ fn main() {
     let input_file = args.value_of("input_file").unwrap();
 
     let mut proc = Chip8Cpu::new();
+    let mut fps_clock = FpsClock::new(FPS);
 
     proc.load_rom(input_file);
+
+    loop {
+        proc.tick();
+
+        fps_clock.tick();
+    }
     // proc.execute_rom();
 }

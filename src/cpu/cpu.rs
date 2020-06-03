@@ -3,10 +3,12 @@ use std::io::{Read, Result};
 use std::fmt::{Display, Formatter, Result as fmtResult};
 
 extern crate rand;
-use rand::{SeedableRng, RngCore};
+use rand::{SeedableRng, RngCore, Rng};
 extern crate rand_pcg;
 
 const RAM: usize = 4096;
+const HEIGHT: usize = 32;
+const WIDTH: usize = 64;
 const PROG_START: usize = 0x200;
 
 #[derive(Debug)]
@@ -73,7 +75,9 @@ pub struct Chip8Cpu {
     pc: usize,
     sp: usize,
     stack: [usize; 16],
-    ram: [u8; RAM]
+    ram: [u8; RAM],
+    vram: [[u8; WIDTH]; HEIGHT],
+    vram_update: bool,
 }
 
 impl Chip8Cpu {
@@ -87,6 +91,8 @@ impl Chip8Cpu {
             sp: 0,
             stack: [0; 16],
             ram: [0; RAM],
+            vram: [[0; WIDTH]; HEIGHT],
+            vram_update: false,
         }
     }
 
@@ -118,17 +124,54 @@ impl Chip8Cpu {
     }
 
     pub fn tick(&mut self) {
-        // TODO
+        self.decode_opcode(self.fetch_opcode());
 
         if self.reg_d > 0 { self.reg_d -= 1; }
         if self.reg_s > 0 { self.reg_s -= 1; }
     }
 
-    fn exec_opcode(&self, op: Opcode) {
-        // TODO
+    fn decode_opcode(&mut self, op: Opcode) {
+        println!("Opcode: {}", op);
+        match op.nibbles {
+            (0x0, 0x0, 0xE, 0x0) => self.cls_00E0(),
+            (0x0, 0x0, 0xE, 0xE) => self.ret_00EE(),
+            (0x1, _, _, _) => self.jp_addr_1nnn(op),
+            (0x2, _, _, _) => self.call_addr_2nnn(op),
+            (0x3, _, _, _) => self.se_vx_kk_3xkk(op),
+            (0x4, _, _, _) => self.sne_vx_kk_4xkk(op),
+            (0x5, _, _, 0x0) => self.se_vx_vy_5xy0(op),
+            (0x6, _, _, _) => self.ld_vx_kk_6xkk(op),
+            (0x7, _, _, _) => self.add_vx_kk_7xkk(op),
+            (0x8, _, _, 0x0) => self.ld_vx_vy_8xy0(op),
+            (0x8, _, _, 0x1) => self.or_vx_vy_8xy1(op),
+            (0x8, _, _, 0x2) => self.and_vx_vy_8xy2(op),
+            (0x8, _, _, 0x3) => self.xor_vx_vy_8xy3(op),
+            (0x8, _, _, 0x4) => self.add_vx_vy_8xy4(op),
+            (0x8, _, _, 0x5) => self.sub_vx_vy_8xy5(op),
+            (0x8, _, _, 0x6) => self.shr_vx_8xy6(op),
+            (0x8, _, _, 0x7) => self.subn_vx_vy_8xy7(op),
+            (0x8, _, _, 0xE) => self.shl_vx_8xyE(op),
+            (0x9, _, _, 0x0) => self.sne_vx_vy_9xy0(op),
+            (0xA, _, _, _) => self.ld_i_addr_Annn(op),
+            (0xB, _, _, _) => self.jp_v0_addr_Bnnn(op),
+            (0xC, _, _, _) => self.rnd_vx_kk_Cxkk(op),
+            (0xD, _, _, _) => self.drw_vx_vy_n_Dxyn(op),
+            (0xF, _, 0x0, 0x7) => self.ld_vx_dt_Fx07(op),
+            (0xF, _, 0x1, 0x5) => self.ld_dt_vx_Fx15(op),
+            (0xF, _, 0x1, 0x8) => self.ld_st_vx_Fx18(op),
+            (0xF, _, 0x1, 0xE) => self.add_i_vx_Fx1E(op),
+            (0xF, _, 0x2, 0x9) => self.ld_f_vx_Fx29(op),
+            (0xF, _, 0x3, 0x3) => self.ld_b_vx_Fx33(op),
+            (0xF, _, 0x5, 0x5) => self.ld_i_vx_Fx55(op),
+            (0xF, _, 0x6, 0x5) => self.ld_vx_i_Fx65(op),
+            _ => {
+                println!("Unimplemented opcode: {}", op);
+                self.pc += 2;
+            }
+        }
     }
 
-    fn cls_00E0(&self, op: Opcode) {
+    fn cls_00E0(&self) {
         // TODO
     }
 
@@ -237,10 +280,24 @@ impl Chip8Cpu {
     }
 
     fn rnd_vx_kk_Cxkk(&mut self, op: Opcode) {
-        println!("TODO: REMOVE HARD SEED FROM RNG");
-        let mut rng = rand_pcg::Pcg32::seed_from_u64(123);
+        let mut rng = rand::thread_rng();
         let tmp = (rng.next_u32() as u8) & op.kk;
         self.reg_v[op.x] = tmp as u8;
+        self.pc += 2;
+    }
+
+    fn drw_vx_vy_n_Dxyn(&mut self, op: Opcode) -> () {
+        self.reg_v[0xF] = 0;
+        for byte in 0..op.n {
+            let y = (self.reg_v[op.y] as usize + byte) % HEIGHT as usize;
+            for bit in 0..8 {
+                let x = (self.reg_v[op.x] as usize + bit) % WIDTH as usize;
+                let color = (self.ram[self.reg_i + byte] >> (7 - bit)) & 1;
+                self.reg_v[0xF] |= color & self.vram[y][x];
+                self.vram[y][x] ^= color;
+            }
+        }
+        self.vram_update = true;
         self.pc += 2;
     }
 
@@ -731,6 +788,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn cpu_rnd_vx_kk_Cxkk() {
         let mut cpu = Chip8Cpu::new();
         cpu.rnd_vx_kk_Cxkk(Opcode::new(0xC0FF));
@@ -852,8 +910,7 @@ mod tests {
 // use sdl2::event::Event;
 // use sdl2::keyboard::{KeyboardState, Keycode, Scancode};
 //
-// extern crate fps_clock;
-// use fps_clock::FpsClock;
+
 //
 // mod display;
 // use display::Chip8Display;
