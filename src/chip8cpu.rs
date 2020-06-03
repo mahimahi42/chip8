@@ -1,13 +1,11 @@
 use std::fs::File;
 use std::io::{Read, Result};
-use std::thread;
-use std::time::Duration;
 use std::fmt::{Display, Formatter, Result as fmtResult};
 use rand::Rng;
 
 extern crate sdl2;
 use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
+use sdl2::keyboard::{KeyboardState, Keycode, Scancode};
 
 extern crate fps_clock;
 use fps_clock::FpsClock;
@@ -16,7 +14,7 @@ use crate::chip8display::{HEIGHT, WIDTH, Display as chipDisplay};
 
 const RAM: usize = 4096;
 const PROG_START: usize = 0x200;
-const FPS: u32 = 60;
+const FPS: u32 = 20;
 
 pub struct Opcode {
     opcode: u16,
@@ -109,7 +107,6 @@ impl Cpu<'_> {
     }
 
     pub fn execute_rom(&mut self) {
-        //let tick_delay = Duration::from_millis(200);
         let mut fps_clock = FpsClock::new(FPS);
 
         'game_loop:loop {
@@ -126,6 +123,12 @@ impl Cpu<'_> {
 
             self.execute_opcode(opcode);
 
+            if self.reg_d > 0 {
+                self.reg_d -= 1;
+            }
+            if self.reg_s > 0 {
+                self.reg_s -= 1;
+            }
             if self.display.vram_changed {
                 self.display.draw();
             }
@@ -151,7 +154,7 @@ impl Cpu<'_> {
             0xB => self.opcode_0xB(opcode),
             0xC => self.opcode_0xC(opcode),
             0xD => self.opcode_0xD(opcode),
-            //0xE => self.opcode_0xE(opcode),
+            0xE => self.opcode_0xE(opcode),
             0xF => self.opcode_0xF(opcode),
             _ => {
                 println!("{}", Cpu::unimplemented_opcode(opcode));
@@ -168,8 +171,8 @@ impl Cpu<'_> {
                     self.display.vram_changed = true;
                 },
                 0xE => {
-                    self.pc = self.stack[self.sp];
                     self.sp -= 1;
+                    self.pc = self.stack[self.sp];
                 },
                 _ => {
                     println!("{}", Cpu::unimplemented_opcode(opcode));
@@ -187,8 +190,8 @@ impl Cpu<'_> {
     }
 
     fn opcode_0x2(&mut self, opcode: Opcode) {
+        self.stack[self.sp] = self.pc + 2;
         self.sp += 1;
-        self.stack[self.sp] = self.pc;
         self.pc = opcode.nnn;
     }
 
@@ -222,7 +225,8 @@ impl Cpu<'_> {
     }
 
     fn opcode_0x7(&mut self, opcode: Opcode) {
-        self.reg_v[opcode.x] += opcode.kk;
+        let tmp = self.reg_v[opcode.x] as u16 + opcode.kk as u16;
+        self.reg_v[opcode.x] = tmp as u8;
         self.pc += 2;
     }
 
@@ -234,28 +238,24 @@ impl Cpu<'_> {
             0x3 => self.reg_v[opcode.x] ^= self.reg_v[opcode.y],
             0x4 => {
                 let tmp = self.reg_v[opcode.x] as u16 + self.reg_v[opcode.y] as u16;
-                self.reg_v[opcode.x] += self.reg_v[opcode.y];
-                self.reg_v[0xF] = if tmp > 255 { 1 } else { 0 };
+                self.reg_v[opcode.x] = tmp as u8;
+                self.reg_v[0xF] = if tmp > 0xFF { 1 } else { 0 };
             },
             0x5 => {
-                let tmp = self.reg_v[opcode.x] > self.reg_v[opcode.y];
-                self.reg_v[0xF] = if tmp { 1 } else { 0 };
-                self.reg_v[opcode.x] -= self.reg_v[opcode.y];
+                self.reg_v[0xF] = if self.reg_v[opcode.x] > self.reg_v[opcode.y] { 1 } else { 0 };
+                self.reg_v[opcode.x] = self.reg_v[opcode.x].wrapping_sub(self.reg_v[opcode.y]);
             },
             0x6 => {
-                let tmp = self.reg_v[opcode.x] & 0x1 == 0x1;
-                self.reg_v[0xF] = if tmp { 1 } else { 0 };
-                self.reg_v[opcode.x] /= 2;
+                self.reg_v[0xF] = self.reg_v[opcode.x] & 0x1;
+                self.reg_v[opcode.x] >>= 1;
             },
             0x7 => {
-                let tmp = self.reg_v[opcode.x] < self.reg_v[opcode.y];
-                self.reg_v[0xF] = if tmp { 1 } else { 0 };
-                self.reg_v[opcode.x] = self.reg_v[opcode.y] - self.reg_v[opcode.x];
+                self.reg_v[0xF] = if self.reg_v[opcode.x] < self.reg_v[opcode.y] { 1 } else { 0 };
+                self.reg_v[opcode.x] = self.reg_v[opcode.y].wrapping_sub(self.reg_v[opcode.x]);
             },
             0xE => {
-                let tmp = (self.reg_v[opcode.x] & 0x80) >> 7 == 0x1;
-                self.reg_v[0xF] = if tmp { 1 } else { 0 };
-                self.reg_v[opcode.x] *= 2;
+                self.reg_v[0xF] = (self.reg_v[opcode.x] & 0b10000000) >> 7;
+                self.reg_v[opcode.x] <<= 1;
             },
             _ => {
                 println!("{}", Cpu::unimplemented_opcode(opcode));
@@ -285,8 +285,8 @@ impl Cpu<'_> {
 
     #[allow(non_snake_case)]
     fn opcode_0xC(&mut self, opcode: Opcode) {
-        let rnd = rand::thread_rng().gen_range(0, 256) as u8;
-        self.reg_v[opcode.x] = rnd & opcode.kk;
+        let mut rnd = rand::thread_rng();
+        self.reg_v[opcode.x] = rnd.gen::<u8>() & opcode.kk;
         self.pc += 2;
     }
 
@@ -308,9 +308,131 @@ impl Cpu<'_> {
 
     #[allow(non_snake_case)]
     fn opcode_0xE(&mut self, opcode: Opcode) {
+        match opcode.nibbles.2 {
+            0x9 => match opcode.nibbles.3 {
+                0xE => {
+                    let mut skip = false;
+                    let keyboard = KeyboardState::new(&self.display.event_pump);
 
+                    match self.reg_v[opcode.x] {
+                        0x1 => {
+                            skip = keyboard.is_scancode_pressed(Scancode::Num1);
+                        },
+                        0x2 => {
+                            skip = keyboard.is_scancode_pressed(Scancode::Num2);
+                        },
+                        0x3 => {
+                            skip = keyboard.is_scancode_pressed(Scancode::Num3);
+                        },
+                        0x4 => {
+                            skip = keyboard.is_scancode_pressed(Scancode::Q);
+                        },
+                        0x5 => {
+                            skip = keyboard.is_scancode_pressed(Scancode::W);
+                        },
+                        0x6 => {
+                            skip = keyboard.is_scancode_pressed(Scancode::E);
+                        },
+                        0x7 => {
+                            skip = keyboard.is_scancode_pressed(Scancode::A);
+                        },
+                        0x8 => {
+                            skip = keyboard.is_scancode_pressed(Scancode::S);
+                        },
+                        0x9 => {
+                            skip = keyboard.is_scancode_pressed(Scancode::D);
+                        },
+                        0x0 => {
+                            skip = keyboard.is_scancode_pressed(Scancode::X);
+                        },
+                        0xA => {
+                            skip = keyboard.is_scancode_pressed(Scancode::Z);
+                        },
+                        0xB => {
+                            skip = keyboard.is_scancode_pressed(Scancode::C);
+                        },
+                        0xC => {
+                            skip = keyboard.is_scancode_pressed(Scancode::Num4);
+                        },
+                        0xD => {
+                            skip = keyboard.is_scancode_pressed(Scancode::R);
+                        },
+                        0xE => {
+                            skip = keyboard.is_scancode_pressed(Scancode::F);
+                        },
+                        0xF => {
+                            skip = keyboard.is_scancode_pressed(Scancode::V);
+                        },
+                        _ => println!("{}", Cpu::unimplemented_opcode(opcode))
+                    }
 
+                    self.pc += if skip { 4 } else { 2 };
+                },
+                _ => println!("{}", Cpu::unimplemented_opcode(opcode))
+            },
+            0xA => match opcode.nibbles.3 {
+                0x1 => {
+                    let mut skip = false;
+                    let keyboard = KeyboardState::new(&self.display.event_pump);
 
+                    match self.reg_v[opcode.x] {
+                        0x1 => {
+                            skip = !keyboard.is_scancode_pressed(Scancode::Num1);
+                        },
+                        0x2 => {
+                            skip = !keyboard.is_scancode_pressed(Scancode::Num2);
+                        },
+                        0x3 => {
+                            skip = !keyboard.is_scancode_pressed(Scancode::Num3);
+                        },
+                        0x4 => {
+                            skip = !keyboard.is_scancode_pressed(Scancode::Q);
+                        },
+                        0x5 => {
+                            skip = !keyboard.is_scancode_pressed(Scancode::W);
+                        },
+                        0x6 => {
+                            skip = !keyboard.is_scancode_pressed(Scancode::E);
+                        },
+                        0x7 => {
+                            skip = !keyboard.is_scancode_pressed(Scancode::A);
+                        },
+                        0x8 => {
+                            skip = !keyboard.is_scancode_pressed(Scancode::S);
+                        },
+                        0x9 => {
+                            skip = !keyboard.is_scancode_pressed(Scancode::D);
+                        },
+                        0x0 => {
+                            skip = !keyboard.is_scancode_pressed(Scancode::X);
+                        },
+                        0xA => {
+                            skip = !keyboard.is_scancode_pressed(Scancode::Z);
+                        },
+                        0xB => {
+                            skip = !keyboard.is_scancode_pressed(Scancode::C);
+                        },
+                        0xC => {
+                            skip = !keyboard.is_scancode_pressed(Scancode::Num4);
+                        },
+                        0xD => {
+                            skip = !keyboard.is_scancode_pressed(Scancode::R);
+                        },
+                        0xE => {
+                            skip = !keyboard.is_scancode_pressed(Scancode::F);
+                        },
+                        0xF => {
+                            skip = !keyboard.is_scancode_pressed(Scancode::V);
+                        },
+                        _ => println!("{}", Cpu::unimplemented_opcode(opcode))
+                    }
+
+                    self.pc += if skip { 4 } else { 2 };
+                },
+                _ => println!("{}", Cpu::unimplemented_opcode(opcode))
+            }
+            _ => println!("{}", Cpu::unimplemented_opcode(opcode))
+        }
     }
 
     #[allow(non_snake_case)]
@@ -319,14 +441,119 @@ impl Cpu<'_> {
             0x0 => match opcode.nibbles.3 {
                 0x7 => self.reg_v[opcode.x] = self.reg_d,
                 0xA => {
-                    println!("future {}", Cpu::unimplemented_opcode(opcode));
+                    'key_loop:loop {
+                        for event in self.display.event_pump.poll_iter() {
+                            match event {
+                                Event::KeyDown {
+                                    keycode: Some(Keycode::Num1), ..
+                                } => {
+                                    self.reg_v[opcode.x] = 0x1;
+                                    break 'key_loop
+                                },
+                                Event::KeyDown {
+                                    keycode: Some(Keycode::Num2), ..
+                                } => {
+                                    self.reg_v[opcode.x] = 0x2;
+                                    break 'key_loop
+                                },
+                                Event::KeyDown {
+                                    keycode: Some(Keycode::Num3), ..
+                                } => {
+                                    self.reg_v[opcode.x] = 0x3;
+                                    break 'key_loop
+                                },
+                                Event::KeyDown {
+                                    keycode: Some(Keycode::Num4), ..
+                                } => {
+                                    self.reg_v[opcode.x] = 0xC;
+                                    break 'key_loop
+                                },
+                                Event::KeyDown {
+                                    keycode: Some(Keycode::Q), ..
+                                } => {
+                                    self.reg_v[opcode.x] = 0x4;
+                                    break 'key_loop
+                                },
+                                Event::KeyDown {
+                                    keycode: Some(Keycode::W), ..
+                                } => {
+                                    self.reg_v[opcode.x] = 0x5;
+                                    break 'key_loop
+                                },
+                                Event::KeyDown {
+                                    keycode: Some(Keycode::E), ..
+                                } => {
+                                    self.reg_v[opcode.x] = 0x6;
+                                    break 'key_loop
+                                },
+                                Event::KeyDown {
+                                    keycode: Some(Keycode::R), ..
+                                } => {
+                                    self.reg_v[opcode.x] = 0xD;
+                                    break 'key_loop
+                                },
+                                Event::KeyDown {
+                                    keycode: Some(Keycode::A), ..
+                                } => {
+                                    self.reg_v[opcode.x] = 0x7;
+                                    break 'key_loop
+                                },
+                                Event::KeyDown {
+                                    keycode: Some(Keycode::S), ..
+                                } => {
+                                    self.reg_v[opcode.x] = 0x8;
+                                    break 'key_loop
+                                },
+                                Event::KeyDown {
+                                    keycode: Some(Keycode::D), ..
+                                } => {
+                                    self.reg_v[opcode.x] = 0x9;
+                                    break 'key_loop
+                                },
+                                Event::KeyDown {
+                                    keycode: Some(Keycode::F), ..
+                                } => {
+                                    self.reg_v[opcode.x] = 0xE;
+                                    break 'key_loop
+                                },
+                                Event::KeyDown {
+                                    keycode: Some(Keycode::Z), ..
+                                } => {
+                                    self.reg_v[opcode.x] = 0xA;
+                                    break 'key_loop
+                                },
+                                Event::KeyDown {
+                                    keycode: Some(Keycode::X), ..
+                                } => {
+                                    self.reg_v[opcode.x] = 0x0;
+                                    break 'key_loop
+                                },
+                                Event::KeyDown {
+                                    keycode: Some(Keycode::C), ..
+                                } => {
+                                    self.reg_v[opcode.x] = 0xB;
+                                    break 'key_loop
+                                },
+                                Event::KeyDown {
+                                    keycode: Some(Keycode::V), ..
+                                } => {
+                                    self.reg_v[opcode.x] = 0xF;
+                                    break 'key_loop
+                                },
+                                _ => {}
+                            }
+                        }
+                    }
                 }
                 _ => println!("{}", Cpu::unimplemented_opcode(opcode))
             },
             0x1 => match opcode.nibbles.3 {
                 0x5 => self.reg_d = self.reg_v[opcode.x],
                 0x8 => self.reg_s = self.reg_v[opcode.x],
-                0xE => self.reg_i += self.reg_v[opcode.x] as usize,
+                0xE => {
+                    self.reg_i += self.reg_v[opcode.x] as usize;
+                    self.reg_v[0xF] = if self.reg_i > 0xF00 { 1 } else { 0 };
+                },
                 _ => println!("{}", Cpu::unimplemented_opcode(opcode))
             },
             0x2 => match opcode.nibbles.3 {
@@ -338,14 +565,14 @@ impl Cpu<'_> {
             }
             0x3 => match opcode.nibbles.3 {
                 0x3 => {
-                    let x = self.reg_v[opcode.x];
-                    let hun = (x / 100) % 10;
-                    let ten = (x / 10) % 10;
-                    let one = x % 10;
+                    // let x = self.reg_v[opcode.x];
+                    // let hun = x / 100;
+                    // let ten = (x % 100) / 10;
+                    // let one = x % 10;
                     let i = self.reg_i;
-                    self.ram[i] = hun;
-                    self.ram[i+1] = ten;
-                    self.ram[i+2] = one;
+                    self.ram[i] = self.reg_v[opcode.x] / 100;
+                    self.ram[i+1] = (self.reg_v[opcode.x] % 100) / 10;
+                    self.ram[i+2] = self.reg_v[opcode.x] % 10;
                 },
                 _ => println!("{}", Cpu::unimplemented_opcode(opcode))
             },
@@ -353,7 +580,7 @@ impl Cpu<'_> {
                 0x5 => {
                     let x = opcode.x;
                     let i = self.reg_i;
-                    for idx in 0..x {
+                    for idx in 0..x + 1{
                         self.ram[i + idx] = self.reg_v[idx];
                     }
                 },
@@ -363,7 +590,7 @@ impl Cpu<'_> {
                 0x5 => {
                     let x = opcode.x;
                     let i = self.reg_i;
-                    for idx in 0..x {
+                    for idx in 0..x + 1 {
                         self.reg_v[idx] = self.ram[i + idx];
                     }
                 },

@@ -15,7 +15,7 @@ pub struct Display {
     pub canvas: Canvas<Window>,
     pub vram: [[u8; WIDTH as usize]; HEIGHT as usize],
     pub vram_changed: bool,
-    pub event_pump: EventPump
+    pub event_pump: EventPump,
 }
 
 impl Display {
