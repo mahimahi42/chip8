@@ -96,6 +96,7 @@ pub struct Chip8Cpu {
     ram: [u8; RAM],
     pub vram: [[u8; WIDTH]; HEIGHT],
     pub vram_update: bool,
+    pub beep: bool,
 }
 
 impl Chip8Cpu {
@@ -116,6 +117,7 @@ impl Chip8Cpu {
             ram: ram,
             vram: [[0; WIDTH]; HEIGHT],
             vram_update: false,
+            beep: false
         }
     }
 
@@ -150,7 +152,12 @@ impl Chip8Cpu {
         self.decode_opcode(self.fetch_opcode(), input);
 
         if self.reg_d > 0 { self.reg_d -= 1; }
-        if self.reg_s > 0 { self.reg_s -= 1; }
+        if self.reg_s > 0 {
+            self.reg_s -= 1;
+            self.beep = true;
+        } else {
+            self.beep = false;
+        }
     }
 
     fn decode_opcode(&mut self, op: Opcode, input: [bool; 16]) {

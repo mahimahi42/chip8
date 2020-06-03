@@ -13,6 +13,8 @@ mod display;
 use display::Chip8Display;
 mod input;
 use input::Chip8Input;
+mod audio;
+use audio::Chip8Audio;
 
 const FPS: u32 = 60;
 
@@ -34,6 +36,7 @@ fn main() {
     let mut proc = Chip8Cpu::new();
     let mut display = Chip8Display::new(&sdl);
     let mut input = Chip8Input::new(&sdl);
+    let audio = Chip8Audio::new(&sdl);
     let mut fps_clock = FpsClock::new(FPS);
 
     proc.load_rom(input_file);
@@ -52,6 +55,12 @@ fn main() {
 
         if proc.vram_update {
             display.draw(&proc.vram);
+        }
+
+        if proc.beep {
+            audio.play();
+        } else {
+            audio.stop();
         }
 
         fps_clock.tick();
